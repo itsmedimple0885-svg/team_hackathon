@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertCircle,
@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-type Priority = "Critical" | "High" | "Medium";
+type Priority = "Critical" | "High" | "Medium" | "Low";
 type Item = {
   id: number;
   title: string;
@@ -44,7 +44,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const defaultItems: Item[] = [
   {
     id: 1,
-    title: "Production: API Timeout in Payment Service",
+    title: "INC-1001: Production API Timeout in Payment Service",
     tag: "INCIDENT",
     owner: "Priya Sharma",
     priority: "Critical",
@@ -80,6 +80,45 @@ const defaultItems: Item[] = [
     status: "Needs review",
     impact: "12 findings",
     age: "1h",
+  },
+  {
+    id: 8,
+    title: "INC-204: Payment reconciliation batch delay",
+    tag: "INCIDENT",
+    owner: "Vikram Roy",
+    priority: "Critical",
+    score: 8.9,
+    due: "Today · 6:30 PM",
+    source: "Incident feed",
+    status: "Investigating",
+    impact: "Finance operations",
+    age: "52m",
+  },
+  {
+    id: 9,
+    title: "Teams: Release readiness checklist needs owners",
+    tag: "TEAMS",
+    owner: "Arjun Patel",
+    priority: "High",
+    score: 8.3,
+    due: "Tomorrow · 2:00 PM",
+    source: "#release-planning",
+    status: "Needs response",
+    impact: "September release",
+    age: "1h",
+  },
+  {
+    id: 10,
+    title: "Email: Vendor renewal approval required",
+    tag: "OUTLOOK",
+    owner: "Finance Team",
+    priority: "High",
+    score: 7.8,
+    due: "Today · 7:00 PM",
+    source: "Finance inbox",
+    status: "Awaiting approval",
+    impact: "$180K renewal",
+    age: "2h",
   },
   {
     id: 4,
@@ -221,6 +260,10 @@ export default function ExecutiveApp() {
   const [toast, setToast] = useState("");
   const [jiraLoading, setJiraLoading] = useState(false);
   const [jiraCreateLoading, setJiraCreateLoading] = useState(false);
+  const [managerFocus, setManagerFocus] = useState<"priorities" | "members" | "today">("priorities");
+  const [managerSummaryFilter, setManagerSummaryFilter] = useState<"all" | "critical" | "high" | "medium" | "low">("all");
+  const managerPrioritiesRef = useRef<HTMLElement | null>(null);
+  const teamMembersRef = useRef<HTMLElement | null>(null);
   const filtered = useMemo(
     () =>
       items.filter((item) =>
@@ -233,6 +276,14 @@ export default function ExecutiveApp() {
   const notify = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 2200);
+  };
+  const focusManagerSection = (section: "priorities" | "members" | "today") => setManagerFocus(section);
+  const switchTab = (nextTab: "personal" | "team" | "trace") => {
+    setTab(nextTab);
+    setSelected(null);
+    setMember(null);
+    setManagerFocus("priorities");
+    setManagerSummaryFilter("all");
   };
   const importJira = async () => {
     setJiraLoading(true);
@@ -346,6 +397,8 @@ export default function ExecutiveApp() {
   };
   const critical = items.filter((item) => item.priority === "Critical");
   const high = items.filter((item) => item.priority === "High");
+  const incidentTickets = critical.filter((item) => item.tag === "INCIDENT");
+  const communicationHigh = high.filter((item) => item.tag === "OUTLOOK" || item.tag === "TEAMS");
   const today = items.filter(
     (item) => item.due.includes("Today") || item.due === "ASAP",
   );
@@ -353,10 +406,14 @@ export default function ExecutiveApp() {
     insight === "today"
       ? today
       : insight === "high"
-        ? high
+        ? communicationHigh
         : insight === "score"
           ? items.slice(0, 4)
-          : critical;
+          : incidentTickets;
+  const managerPriorityRows = items.slice().sort((left, right) => right.score - left.score);
+  const visibleManagerRows = managerSummaryFilter === "all"
+    ? managerPriorityRows
+    : managerPriorityRows.filter((item) => item.priority.toLowerCase() === managerSummaryFilter);
   const avg = (
     items.reduce((sum, item) => sum + item.score, 0) / items.length
   ).toFixed(1);
@@ -428,19 +485,19 @@ export default function ExecutiveApp() {
         <nav className="tabs">
           <button
             className={tab === "personal" ? "active" : ""}
-            onClick={() => setTab("personal")}
+            onClick={() => switchTab("personal")}
           >
             <LayoutDashboard size={16} /> My Priority
           </button>
           <button
             className={tab === "team" ? "active" : ""}
-            onClick={() => setTab("team")}
+            onClick={() => switchTab("team")}
           >
             <Users size={16} /> Manager View
           </button>
           <button
             className={tab === "trace" ? "active" : ""}
-            onClick={() => setTab("trace")}
+            onClick={() => switchTab("trace")}
           >
             <BarChart3 size={16} /> Actions &amp; Traceability
           </button>
@@ -453,22 +510,22 @@ export default function ExecutiveApp() {
               <Kpi
                 icon={<AlertCircle />}
                 label={tab === "team" ? "Team Members" : "Critical Items"}
-                value={tab === "team" ? members.length : critical.length}
+                value={tab === "team" ? members.length : incidentTickets.length}
                 sub={
                   tab === "team"
                     ? "Review workload and capacity"
                     : "Require immediate attention"
                 }
                 tone="red"
-                onClick={() => setInsight("critical")}
+                onClick={() => tab === "team" ? focusManagerSection("members") : setInsight("critical")}
               />
               <Kpi
                 icon={<ShieldAlert />}
                 label={tab === "team" ? "Top Team Priorities" : "High Priority"}
-                value={tab === "team" ? items.length : high.length}
+                value={tab === "team" ? managerPriorityRows.length : communicationHigh.length}
                 sub={tab === "team" ? "Ranked by urgency and impact" : "Require attention today"}
                 tone="amber"
-                onClick={() => setInsight("high")}
+                onClick={() => tab === "team" ? focusManagerSection("priorities") : setInsight("high")}
               />
               <Kpi
                 icon={<Clock3 />}
@@ -476,7 +533,7 @@ export default function ExecutiveApp() {
                 value={today.length}
                 sub="Due today or ASAP"
                 tone="blue"
-                onClick={() => setInsight("today")}
+                onClick={() => tab === "team" ? focusManagerSection("today") : setInsight("today")}
               />
               <Kpi
                 icon={<BarChart3 />}
@@ -484,13 +541,20 @@ export default function ExecutiveApp() {
                 value={`${avg}/10`}
                 sub="Confidence in ranking"
                 tone="green"
-                onClick={() => setInsight("score")}
+                onClick={() => tab === "team" ? focusManagerSection("priorities") : setInsight("score")}
               />
             </section>
             {tab === "personal" ? (
               <InsightPanel
                 rows={rows}
                 onSelect={setSelected}
+                description={
+                  insight === "high"
+                      ? "Top signals with owner, deadline, status, and impact."
+                    : insight === "critical"
+                      ? "High-impact work with owner, deadline, status, and impact."
+                      : undefined
+                }
                 title={
                   insight === "today"
                     ? "Actions due today"
@@ -503,7 +567,8 @@ export default function ExecutiveApp() {
               />
             ) : (
               <>
-                <section className="panel manager-priority-panel">
+                <div className={`manager-view-stack focus-${managerFocus}`}>
+                <section className="panel manager-priority-panel" ref={managerPrioritiesRef}>
                   <div className="panel-head">
                     <div>
                       <h2>Top Team Priorities</h2>
@@ -511,9 +576,34 @@ export default function ExecutiveApp() {
                     </div>
                     <span className="mini-total">{items.length} items</span>
                   </div>
-                  {items
-                    .slice()
-                    .sort((left, right) => right.score - left.score)
+                  <div className="priority-summary-grid">
+                    <button type="button" aria-pressed={managerSummaryFilter === "all"} className={`priority-summary-card all-summary ${managerSummaryFilter === "all" ? "summary-selected" : ""}`} onClick={() => setManagerSummaryFilter("all")}>
+                      <span>All</span>
+                      <strong>{managerPriorityRows.length}</strong>
+                      <small>All team priorities</small>
+                    </button>
+                    <button type="button" aria-pressed={managerSummaryFilter === "critical"} className={`priority-summary-card critical-summary ${managerSummaryFilter === "critical" ? "summary-selected" : ""}`} onClick={() => setManagerSummaryFilter("critical")}>
+                      <span>Critical</span>
+                      <strong>{critical.length}</strong>
+                      <small>Immediate attention</small>
+                    </button>
+                    <button type="button" aria-pressed={managerSummaryFilter === "high"} className={`priority-summary-card high-summary ${managerSummaryFilter === "high" ? "summary-selected" : ""}`} onClick={() => setManagerSummaryFilter("high")}>
+                      <span>High Priority</span>
+                      <strong>{high.length}</strong>
+                      <small>Needs attention</small>
+                    </button>
+                    <button type="button" aria-pressed={managerSummaryFilter === "medium"} className={`priority-summary-card medium-summary ${managerSummaryFilter === "medium" ? "summary-selected" : ""}`} onClick={() => setManagerSummaryFilter("medium")}>
+                      <span>Medium</span>
+                      <strong>{items.filter((item) => item.priority === "Medium").length}</strong>
+                      <small>Planned delivery work</small>
+                    </button>
+                    <button type="button" aria-pressed={managerSummaryFilter === "low"} className={`priority-summary-card low-summary ${managerSummaryFilter === "low" ? "summary-selected" : ""}`} onClick={() => setManagerSummaryFilter("low")}>
+                      <span>Low</span>
+                      <strong>{items.filter((item) => item.priority === "Low").length}</strong>
+                      <small>Lower urgency</small>
+                    </button>
+                  </div>
+                  {visibleManagerRows
                     .slice(0, 5)
                     .map((item, index) => (
                       <button className="priority-row" key={item.id} onClick={() => setSelected(item)}>
@@ -528,7 +618,28 @@ export default function ExecutiveApp() {
                       </button>
                     ))}
                 </section>
-                <section className="panel">
+                <section className="panel manager-today-panel">
+                  <div className="panel-head">
+                    <div>
+                      <h2>Today's Actions</h2>
+                      <span>Work requiring attention today</span>
+                    </div>
+                    <span className="mini-total">{today.length} items</span>
+                  </div>
+                  {today.map((item, index) => (
+                    <button className="priority-row" key={item.id} onClick={() => setSelected(item)}>
+                      <span className="priority-rank">{String(index + 1).padStart(2, "0")}</span>
+                      <span className={`priority-marker ${item.priority.toLowerCase()}`} />
+                      <span className="priority-copy">
+                        <b>{item.title}</b>
+                        <small>{item.owner} · {item.due}</small>
+                      </span>
+                      <strong>{item.score}</strong>
+                      <ChevronDown size={15} />
+                    </button>
+                  ))}
+                </section>
+                <section className="panel team-members-panel" ref={teamMembersRef}>
                   <div className="panel-head">
                     <div>
                       <h2>Team Member Dashboard</h2>
@@ -569,6 +680,7 @@ export default function ExecutiveApp() {
                     </button>
                   ))}
                 </section>
+                </div>
                 <div className="manager-insight-grid">
                   <SourceDistribution />
                   <TeamRisks />
@@ -634,21 +746,20 @@ function InsightPanel({
   title,
   rows,
   onSelect,
+  description,
 }: {
   title: string;
   rows: Item[];
   onSelect: (item: Item) => void;
+  description?: string;
 }) {
   return (
     <section className="panel insight-panel">
       <div className="insight-head">
         <div>
-          <span className="eyebrow">SELECTED PRIORITY CARD</span>
+          <span className="eyebrow">PRIORITY REVIEW</span>
           <h2>{title}</h2>
-          <p>
-            {rows.length} items are currently active. Review the highest-impact
-            signals and confirm ownership or mitigation.
-          </p>
+          <p>{description || `${rows.length} items are currently active. Review the highest-impact signals and confirm ownership or mitigation.`}</p>
         </div>
         <div className="insight-count">
           {rows.length}
@@ -666,7 +777,7 @@ function InsightPanel({
             <div>
               <b>{item.title}</b>
               <span>
-                {item.owner} · {item.source}
+                Owner: {item.owner} · Source: {item.source} · {item.age} ago
               </span>
             </div>
             <strong>{item.score}</strong>
