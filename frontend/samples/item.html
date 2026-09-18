@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Item Detail & Audit Trail</title>
+  <style>
+    body{font-family:Segoe UI,Arial;margin:22px}
+    .panel{border:1px solid #e6e6e6;padding:12px;border-radius:8px;margin-bottom:12px}
+    .rationale{background:#f7fff9;border-left:4px solid #2b8cff;padding:10px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid #f0f0f0}
+    .meta{color:#666;font-size:13px}
+  </style>
+</head>
+<body>
+  <h1>Item: Resolve incident #452</h1>
+  <div class="panel">
+    <div><strong>Source:</strong> Incidents System</div>
+    <div class="meta">Source ID: inc-452 • Reported: 2026-09-16 • Owner: Carol</div>
+    <p>Description: Payments gateway failing intermittently for high-value transactions.</p>
+  </div>
+
+  <h3>AI Prioritizer Rationale</h3>
+  <div class="rationale">
+    <strong>Score: 92 (conf 0.88)</strong>
+    <p>GPT-4: High customer impact and SLA breach risk; requires urgent triage by Payments on-call. Recommend immediate owner action or escalate to SRE.</p>
+  </div>
+
+  <h3>Traceability & Links</h3>
+  <div class="panel">
+    <div><a href="#">Open source incident</a> • <a href="#">Related Jira FIN-128</a> • Raw payload: <a href="#">/storage/raw/inc-452.json</a></div>
+  </div>
+
+  <h3>Audit Trail</h3>
+  <table>
+    <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td>2026-09-16 10:14</td><td>System</td><td>Ingested</td><td>Webhook from Incidents</td></tr>
+      <tr><td>2026-09-16 10:18</td><td>AI-Prioritizer</td><td>Scored</td><td>Score 92; reason: high impact</td></tr>
+      <tr><td>2026-09-16 10:20</td><td>Carol</td><td>Assigned</td><td>Assigned to Carol</td></tr>
+    </tbody>
+  </table>
+</body>
+</html>

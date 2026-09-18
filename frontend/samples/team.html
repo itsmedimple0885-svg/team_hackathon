@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Team Work Board</title>
+  <style>
+    body{font-family:Segoe UI,Arial;margin:20px}
+    .board{display:flex;gap:12px}
+    .column{flex:1;background:#f7f9fc;padding:12px;border-radius:6px}
+    .card{background:#fff;padding:10px;border-radius:6px;margin-bottom:8px;border:1px solid #e2e8f0}
+    .util{display:flex;gap:10px}
+    .heat td{padding:6px;text-align:center;border:1px solid #f0f0f0}
+  </style>
+</head>
+<body>
+  <h1>Team Work Board — Payments Team</h1>
+  <div style="margin-bottom:12px">Lead: Bob Smith • Team Utilization: <strong>72%</strong></div>
+  <div class="board">
+    <div class="column">
+      <h3>High Priority</h3>
+      <div class="card"><strong>Resolve incident #452</strong><div class="meta">Owner: Carol • Score: 92</div></div>
+      <div class="card"><strong>VIP payment followup</strong><div class="meta">Owner: Alice • Score: 88</div></div>
+    </div>
+    <div class="column">
+      <h3>Medium</h3>
+      <div class="card"><strong>Jira FIN-128 review</strong><div class="meta">Owner: Dan • Score: 70</div></div>
+    </div>
+    <div class="column">
+      <h3>Low</h3>
+      <div class="card"><strong>Monthly reconciliation</strong><div class="meta">Owner: Emma • Score: 45</div></div>
+    </div>
+  </div>
+
+  <h3 style="margin-top:18px">Team Utilization (hrs/day)</h3>
+  <table class="heat">
+    <tr><td>Member</td><td>Mon</td><td>Tue</td><td>Wed</td><td>Thu</td><td>Fri</td></tr>
+    <tr><td>Alice</td><td style="background:#c6f6d5">6</td><td style="background:#fefcbf">4</td><td>5</td><td style="background:#fed7d7">8</td><td>3</td></tr>
+    <tr><td>Carol</td><td>7</td><td>6</td><td>6</td><td>7</td><td>5</td></tr>
+  </table>
+</body>
+</html>

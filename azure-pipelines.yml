@@ -1,0 +1,22 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+jobs:
+- job: Build
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.11'
+  - script: |
+      python -m venv .venv
+      . .venv/bin/activate
+      pip install -r backend/requirements.txt
+    displayName: 'Install backend deps'
+  - script: |
+      cd frontend
+      npm ci
+      npm run build
+    displayName: 'Build frontend'
