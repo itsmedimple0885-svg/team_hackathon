@@ -1,12 +1,15 @@
+import os
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends
+import httpx
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .db import get_db
 from .models import PriorityRun, WorkItem
 from .prioritizer import prioritize_items
-from .schemas import DashboardRequest, PrioritizeRequest
+from .jira import create_issue, fetch_public_issues
+from .schemas import DashboardItem, DashboardRequest, JiraCreateRequest, JiraImportRequest, PrioritizeRequest
 
 router = APIRouter()
 
@@ -63,6 +66,83 @@ async def ingest(payload: dict = Body(...)):
     # Validate and persist payload (stub)
     # TODO: persist to DB and index
     return {"status": "ingested", "received": payload.get('source')}
+
+
+@router.post('/integrations/jira/import')
+async def import_jira(request: JiraImportRequest, db: Session = Depends(get_db)):
+    project_key = request.project_key.strip()
+    if not project_key:
+        raise HTTPException(status_code=422, detail="project_key is required.")
+
+    try:
+        items = await fetch_public_issues(
+            request.jira_url,
+            f'project = "{project_key}" ORDER BY updated DESC',
+            request.max_results,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Unable to read Jira: {exc}") from exc
+
+    priorities = await prioritize_items(items, request.snapshot or {})
+    persisted = []
+    for index, item in enumerate(items):
+        priority = priorities[index] if index < len(priorities) else None
+        work_item = _persist_item_and_priority(db, DashboardItem(**item), index, priority)
+        persisted.append({
+            "id": item["id"],
+            "title": item["title"],
+            "status": item["status"],
+            "work_item_id": work_item.id,
+            "priority": priority,
+        })
+
+    return {
+        "source": "Jira",
+        "project": project_key,
+        "count": len(persisted),
+        "items": persisted,
+    }
+
+
+@router.post('/integrations/jira/issues')
+async def create_jira_issues(request: JiraCreateRequest):
+    if not request.tickets:
+        raise HTTPException(status_code=422, detail="At least one Jira ticket is required.")
+
+    email = os.getenv("JIRA_EMAIL")
+    api_token = os.getenv("JIRA_API_TOKEN")
+    created = []
+    try:
+        for ticket in request.tickets:
+            summary = (ticket.get("summary") or "").strip()
+            description = (ticket.get("description") or summary).strip()
+            priority = (ticket.get("priority") or "High").strip()
+            if not summary:
+                raise ValueError("Each Jira ticket requires a summary.")
+            issue = await create_issue(
+                request.jira_url,
+                email,
+                api_token,
+                request.project_key.strip(),
+                summary,
+                description,
+                priority,
+            )
+            created.append({
+                "key": issue.get("key"),
+                "id": issue.get("id"),
+                "url": f"{request.jira_url.rstrip('/')}/browse/{issue.get('key')}",
+                "summary": summary,
+                "priority": priority,
+            })
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (httpx.HTTPError, ValueError) as exc:
+        raise HTTPException(status_code=502, detail=f"Unable to create Jira issue: {exc}") from exc
+
+    return {"source": "Jira", "project": request.project_key, "count": len(created), "items": created}
 
 
 @router.post('/prioritize')

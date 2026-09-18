@@ -30,3 +30,16 @@ class DashboardRequest(BaseModel):
     snapshot: Optional[Dict[str, Any]] = {}
     team: Optional[str] = None
     user: Optional[str] = None
+
+
+class JiraImportRequest(BaseModel):
+    jira_url: str
+    project_key: str
+    max_results: int = Field(default=50, ge=1, le=100)
+    snapshot: Optional[Dict[str, Any]] = {}
+
+
+class JiraCreateRequest(BaseModel):
+    jira_url: str
+    project_key: str = "KAN"
+    tickets: List[Dict[str, str]] = Field(default_factory=list)
