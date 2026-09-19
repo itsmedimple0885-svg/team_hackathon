@@ -38,7 +38,29 @@ type Item = {
   status: string;
   impact: string;
   age: string;
+  dueDate?: string;
   jiraUrl?: string;
+};
+const dateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+const dueDateKey = (due: string, now: Date, explicitDate?: string) => {
+  if (explicitDate) return explicitDate;
+  const normalized = due.toLowerCase();
+  if (normalized.includes("today") || normalized === "asap") return dateKey(now);
+  if (normalized.includes("tomorrow")) return dateKey(addDays(now, 1));
+  const match = due.match(/([A-Za-z]{3,9})\s+(\d{1,2})/);
+  if (!match) return null;
+  const parsed = new Date(`${match[1]} ${match[2]}, ${now.getFullYear()}`);
+  return Number.isNaN(parsed.getTime()) ? null : dateKey(parsed);
 };
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const defaultItems: Item[] = [
@@ -54,6 +76,7 @@ const defaultItems: Item[] = [
     status: "In progress",
     impact: "Customer payments",
     age: "18m",
+    dueDate: "2026-09-19",
   },
   {
     id: 2,
@@ -67,6 +90,7 @@ const defaultItems: Item[] = [
     status: "Blocked",
     impact: "12 customers",
     age: "42m",
+    dueDate: "2026-09-19",
   },
   {
     id: 3,
@@ -80,6 +104,7 @@ const defaultItems: Item[] = [
     status: "Needs review",
     impact: "12 findings",
     age: "1h",
+    dueDate: "2026-09-20",
   },
   {
     id: 8,
@@ -93,6 +118,7 @@ const defaultItems: Item[] = [
     status: "Investigating",
     impact: "Finance operations",
     age: "52m",
+    dueDate: "2026-09-19",
   },
   {
     id: 9,
@@ -106,6 +132,7 @@ const defaultItems: Item[] = [
     status: "Needs response",
     impact: "September release",
     age: "1h",
+    dueDate: "2026-09-21",
   },
   {
     id: 10,
@@ -119,6 +146,7 @@ const defaultItems: Item[] = [
     status: "Awaiting approval",
     impact: "$180K renewal",
     age: "2h",
+    dueDate: "2026-09-22",
   },
   {
     id: 4,
@@ -132,6 +160,7 @@ const defaultItems: Item[] = [
     status: "Awaiting approval",
     impact: "$2.4M budget",
     age: "2h",
+    dueDate: "2026-09-23",
   },
   {
     id: 5,
@@ -145,6 +174,7 @@ const defaultItems: Item[] = [
     status: "Planned",
     impact: "Performance",
     age: "3h",
+    dueDate: "2026-09-24",
   },
   {
     id: 6,
@@ -158,6 +188,7 @@ const defaultItems: Item[] = [
     status: "In review",
     impact: "Developer enablement",
     age: "4h",
+    dueDate: "2026-09-25",
   },
   {
     id: 7,
@@ -171,6 +202,7 @@ const defaultItems: Item[] = [
     status: "Open",
     impact: "Pinned Jira ticket",
     age: "configured",
+    dueDate: "2026-09-26",
     jiraUrl:
       "https://debuggers-1.atlassian.net/jira/software/projects/KAN/boards/1?filter=&groupBy=none&selectedIssue=KAN-1",
   },
@@ -262,16 +294,18 @@ export default function ExecutiveApp() {
   const [jiraCreateLoading, setJiraCreateLoading] = useState(false);
   const [managerFocus, setManagerFocus] = useState<"priorities" | "members" | "today">("priorities");
   const [managerSummaryFilter, setManagerSummaryFilter] = useState<"all" | "critical" | "high" | "medium" | "low">("all");
+  const [calendarDate, setCalendarDate] = useState(() => dateKey(new Date()));
   const managerPrioritiesRef = useRef<HTMLElement | null>(null);
   const teamMembersRef = useRef<HTMLElement | null>(null);
+  const calendarInputRef = useRef<HTMLInputElement | null>(null);
   const filtered = useMemo(
     () =>
       items.filter((item) =>
-        `${item.title} ${item.owner} ${item.tag}`
+        `${item.title} ${item.owner} ${item.tag} ${item.source} ${item.status} ${item.due} ${item.impact}`
           .toLowerCase()
-          .includes(query.toLowerCase()),
+          .includes(query.trim().toLowerCase()),
       ),
-    [query],
+    [items, query],
   );
   const notify = (message: string) => {
     setToast(message);
@@ -397,20 +431,29 @@ export default function ExecutiveApp() {
   };
   const critical = items.filter((item) => item.priority === "Critical");
   const high = items.filter((item) => item.priority === "High");
-  const incidentTickets = critical.filter((item) => item.tag === "INCIDENT");
-  const communicationHigh = high.filter((item) => item.tag === "OUTLOOK" || item.tag === "TEAMS");
-  const today = items.filter(
-    (item) => item.due.includes("Today") || item.due === "ASAP",
+  const incidentTickets = filtered.filter(
+    (item) => item.priority === "Critical" && item.tag === "INCIDENT",
+  );
+  const communicationHigh = filtered.filter(
+    (item) =>
+      item.priority === "High" &&
+      (item.tag === "OUTLOOK" || item.tag === "TEAMS"),
+  );
+  const today = items.filter((item) => dueDateKey(item.due, new Date()) === dateKey(new Date()));
+  const filteredToday = filtered.filter(
+    (item) => dueDateKey(item.due, new Date(), item.dueDate) === calendarDate,
   );
   const rows =
     insight === "today"
-      ? today
+      ? filteredToday
       : insight === "high"
         ? communicationHigh
         : insight === "score"
-          ? items.slice(0, 4)
+          ? filtered.slice(0, 4)
           : incidentTickets;
-  const managerPriorityRows = items.slice().sort((left, right) => right.score - left.score);
+  const managerPriorityRows = filtered
+    .slice()
+    .sort((left, right) => right.score - left.score);
   const visibleManagerRows = managerSummaryFilter === "all"
     ? managerPriorityRows
     : managerPriorityRows.filter((item) => item.priority.toLowerCase() === managerSummaryFilter);
@@ -477,9 +520,37 @@ export default function ExecutiveApp() {
             </p>
           </div>
           <div className="heading-actions">
-            <button className="secondary-btn">
-              <CalendarClock size={16} /> Today <ChevronDown size={14} />
-            </button>
+            <div className="calendar-control">
+              <button
+                type="button"
+                className="secondary-btn calendar-picker"
+                onClick={() => {
+                  setCalendarDate(dateKey(new Date()));
+                  setInsight("today");
+                  setManagerFocus("today");
+                  if (calendarInputRef.current?.showPicker) {
+                    calendarInputRef.current.showPicker();
+                  } else {
+                    calendarInputRef.current?.click();
+                  }
+                }}
+              >
+                <CalendarClock size={16} />
+                <span>{calendarDate === dateKey(new Date()) ? "Today" : new Date(`${calendarDate}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+                <ChevronDown size={14} />
+              </button>
+              <input
+                ref={calendarInputRef}
+                type="date"
+                value={calendarDate}
+                onChange={(event) => {
+                  setCalendarDate(event.target.value);
+                  setInsight("today");
+                  setManagerFocus("today");
+                }}
+                aria-label="Choose dashboard date"
+              />
+            </div>
           </div>
         </div>
         <nav className="tabs">
@@ -557,7 +628,7 @@ export default function ExecutiveApp() {
                 }
                 title={
                   insight === "today"
-                    ? "Actions due today"
+                    ? calendarDate === dateKey(new Date()) ? "Actions due today" : "Scheduled actions"
                     : insight === "high"
                       ? "High-priority delivery signals"
                       : insight === "score"
@@ -621,12 +692,12 @@ export default function ExecutiveApp() {
                 <section className="panel manager-today-panel">
                   <div className="panel-head">
                     <div>
-                      <h2>Today's Actions</h2>
-                      <span>Work requiring attention today</span>
+                      <h2>{calendarDate === dateKey(new Date()) ? "Today's Actions" : "Scheduled Actions"}</h2>
+                      <span>Work scheduled for {new Date(`${calendarDate}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</span>
                     </div>
-                    <span className="mini-total">{today.length} items</span>
+                    <span className="mini-total">{filteredToday.length} items</span>
                   </div>
-                  {today.map((item, index) => (
+                  {filteredToday.map((item, index) => (
                     <button className="priority-row" key={item.id} onClick={() => setSelected(item)}>
                       <span className="priority-rank">{String(index + 1).padStart(2, "0")}</span>
                       <span className={`priority-marker ${item.priority.toLowerCase()}`} />
@@ -695,6 +766,7 @@ export default function ExecutiveApp() {
           item={selected}
           onClose={() => setSelected(null)}
           onComplete={() => {
+            setItems((current) => current.filter((item) => item.id !== selected.id));
             setSelected(null);
             notify("Action marked complete");
           }}
@@ -784,6 +856,7 @@ function InsightPanel({
             <ChevronDown size={15} />
           </button>
         ))}
+        {!rows.length && <div className="search-empty">No matching work</div>}
       </div>
     </section>
   );
@@ -883,6 +956,7 @@ function Traceability({
             <div className="trace-action">{item.due}</div>
           </button>
         ))}
+        {!rows.length && <div className="search-empty">No matching work</div>}
       </section>
       <section className="panel audit">
         <div className="panel-head">

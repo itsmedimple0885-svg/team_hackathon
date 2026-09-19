@@ -6,6 +6,7 @@
 /* Match the reference dashboard interaction polish. */
 .brand-mark{box-shadow:0 5px 14px #0003}
 .primary-btn{box-shadow:0 7px 16px #536be52b}
+.calendar-control{position:relative;display:inline-flex}.calendar-picker{cursor:pointer}.calendar-picker span{min-width:42px;text-align:left}.calendar-control input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .kpi{transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
 .kpi:hover{box-shadow:0 14px 32px rgba(18,35,65,.11)}
 .kpi:focus-visible,.tabs button:focus-visible,.team-row:focus-visible,.insight-row:focus-visible,.trace-row:focus-visible{outline:3px solid #6679ee40;outline-offset:2px}
