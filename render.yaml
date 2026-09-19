@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: team-hackathon-backend
+    runtime: docker
+    rootDir: backend
+    healthCheckPath: /health
+    envVars:
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: AI_ENDPOINT
+        sync: false
+      - key: AI_KEY
+        sync: false
+      - key: AI_MODEL
+        value: claude-fable-5-1
+      - key: USE_LOCAL_FALLBACK
+        value: "true"
+      - key: JIRA_EMAIL
+        sync: false
+      - key: JIRA_API_TOKEN
+        sync: false

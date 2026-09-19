@@ -14,4 +14,15 @@ Quickstart:
 
 The /prioritize endpoint now calls the Azure AI Foundry Anthropic-compatible endpoint using the configured AI_MODEL and AI_KEY. If the AI service is unavailable, the app automatically falls back to the heuristic scoring logic.
 
-Endpoints stubbed: /health, /ingest, /prioritize, /items/{id}/audit
+Endpoints: /health, /ingest, /prioritize, /dashboard, /integrations/jira/import
+
+Public Jira import:
+```powershell
+curl.exe -X POST http://localhost:8000/integrations/jira/import `
+  -H "Content-Type: application/json" `
+  -d '{"jira_url":"https://debuggers-1.atlassian.net","project_key":"KAN","max_results":50}'
+```
+
+The Jira project must allow anonymous browsing/API access. Imported issues are persisted locally and prioritized using the configured AI service or the local fallback.
+
+To create Jira issues, configure `JIRA_EMAIL` and `JIRA_API_TOKEN` in the backend environment. The API uses the authenticated Jira account's project permissions.
